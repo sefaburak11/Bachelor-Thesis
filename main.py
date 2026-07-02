@@ -15,7 +15,7 @@ class pmAnalytics(Flow):
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    eventLogPath = r"ENTER HERE THE FILE PATH!"
+    eventLogPath = r"ENTER THE PATH OF DATA FILE"
     
     fileFormat = "" ##it is needed for analytical agent
 
@@ -60,11 +60,15 @@ class pmAnalytics(Flow):
 
             analyst = Agent(
                 role="Analytical Agent",
+
                 goal= f"Return Python code without introducing it as a variable for the required analyse \
                 based on the user query: {self.userQuery} and profiled dataset: {self.state["metaData"]}",
+
                 backstory="You are the analystics that creates the code for the required analyse." \
-                f"The given event log is available in a variable called 'data' as a string and in dataformat: '{self.fileFormat}'. " \
+                f"The path of given event log is available in a variable called 'dataPath' and the event log is in dataformat: '{self.fileFormat}'." \
+                "If you want to read an event log in XES format, then use the function 'pm4py.read_xes(file_path: str)'. " \
                 "Moreover, save the final part in 'execResults' variable which is needed for the answering query",
+
                 verbose=True
                 )
 
@@ -107,16 +111,12 @@ class pmAnalytics(Flow):
 
 
 
-
     @listen(analyse) ## if the code was approved
     def executor(self): #no LLM, just deterministic
 
-        with open(self.eventLogPath, 'r') as file:
-            eventLogData = file.read()
+        globalVariables = {}
 
-        globalVariables = {"data" : eventLogData}
-
-        localVariables = {}
+        localVariables = {"dataPath" : self.eventLogPath}
         
         exec(self.state["analyseResult"].raw, globalVariables, localVariables)
 
