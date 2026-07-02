@@ -1,44 +1,40 @@
-from crewai.flow.flow import Flow, listen, start, router
+from crewai.flow.flow import Flow, listen, start
 from crewai import Agent
 from dotenv import load_dotenv
 from litellm import completion
 
-import pandas
 import pm4py
-
-from io import StringIO
-
+import pandas
 
 load_dotenv()
 
 class pmAnalytics(Flow):
 
     counterTry = 0 ## number shows the number of try of analytical agent
-
     MAXIMAL_TRY = 2 ## number of maximal try to reproduce the code
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    exampleData = """case_id,activity,timestamp
-    1,"order","09:00"
-    1,"check","09:30"
-    1,"send","13:00"
-    3,"order","09:00"
-    3,"check","09:50"
-    2,"order","09:00"
-    2,"check","09:45"
-    3,"send","15:50"
-    2,"send","14:45"
-    4,"order","9:15"
-    4,"record","10:00"
-    """
+    eventLogPath = r"ENTER HERE THE FILE PATH!"
+    
+    fileFormat = "" ##it is needed for analytical agent
 
 
     @start()
     def dataPrep(self): ##no LLM, just deterministic
-    
-        db = pandas.read_csv(StringIO(self.exampleData))
-
+        
+        if(self.eventLogPath.endswith (".csv")) : ## if data in csv format
+             self.fileFormat = "CSV"
+             print("CSV ENTERED!")
+             db = pandas.read_csv(self.eventLogPath)
+        elif(self.eventLogPath.endswith (".xes")) : ## if data in xes format
+             self.fileFormat = "XES"
+             xesRead = pm4py.read_xes(self.eventLogPath)
+             db = pm4py.convert_to_dataframe(xesRead)
+        else:
+            raise SystemExit("The fileformat is not supported!")
+        
+        
         numberOfRows = len(db) ## number of rows
         namesColumns = list(db.columns)  ## names of columns
         typesColumns = db.dtypes ## types of columns
@@ -67,7 +63,7 @@ class pmAnalytics(Flow):
                 goal= f"Return Python code without introducing it as a variable for the required analyse \
                 based on the user query: {self.userQuery} and profiled dataset: {self.state["metaData"]}",
                 backstory="You are the analystics that creates the code for the required analyse." \
-                "The given event log is available in a variable called 'data as a string. " \
+                f"The given event log is available in a variable called 'data' as a string and in dataformat: '{self.fileFormat}'. " \
                 "Moreover, save the final part in 'execResults' variable which is needed for the answering query",
                 verbose=True
                 )
@@ -76,7 +72,7 @@ class pmAnalytics(Flow):
 
             self.counterTry+=1
 
-            if (self.check(generatedCode)) : ##if the generated code is approved
+            if (self.check(generatedCode)) : ## if the generated code is approved
                 break
 
             elif (self.counterTry == self.MAXIMAL_TRY):
@@ -115,7 +111,10 @@ class pmAnalytics(Flow):
     @listen(analyse) ## if the code was approved
     def executor(self): #no LLM, just deterministic
 
-        globalVariables = {"data" : self.exampleData}
+        with open(self.eventLogPath, 'r') as file:
+            eventLogData = file.read()
+
+        globalVariables = {"data" : eventLogData}
 
         localVariables = {}
         
@@ -130,7 +129,7 @@ class pmAnalytics(Flow):
 
         reporter = Agent(
             role="Reporter",
-            goal= f"Report and summarize the results: {self.state["executorArtifacts"]}",
+            goal= f"Report the results: {self.state["executorArtifacts"]} for the query:{self.userQuery}",
             backstory="You are the reporter that reports the results in a understandable way for the user.",
             verbose=True
             )
