@@ -15,7 +15,7 @@ class pmAnalytics(Flow):
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    eventLogPath = r"ENTER THE PATH OF DATA FILE"
+    eventLogPath =  r"ENTER THE PATH OF DATA FILE"
     
     fileFormat = "" ##it is needed for analytical agent
 
@@ -67,7 +67,8 @@ class pmAnalytics(Flow):
 
                 backstory="You are the analystics that creates the code for the required analyse." \
                 f"The path of given event log is available in a variable called 'dataPath' and the event log is in dataformat: '{self.fileFormat}'." \
-                "If you want to read an event log in XES format, then use the function 'pm4py.read_xes(file_path: str)'. " \
+                "If you want to read an event log in XES format, then use as import just 'pm4py' and the function 'pm4py.read_xes(file_path: str)' and " \
+                "the function 'pm4py.read_xes(file_path: str) returns <class 'pandas.DataFrame'>. " \
                 "Moreover, save the final part in 'execResults' variable which is needed for the answering query.",
 
                 verbose=True
@@ -76,7 +77,6 @@ class pmAnalytics(Flow):
             generatedCode = analyst.kickoff(f"Create a executable code for the {self.userQuery} and {self.state["metaData"]}")
 
             self.counterTry+=1
-
 
             if (self.check(generatedCode)) : ## if the generated code is approved
                 break
@@ -96,9 +96,9 @@ class pmAnalytics(Flow):
             role="Judge Agent",
             goal= f"Return the value 'True' if you think that generated code {code} is appropriate for the {self.state["metaData"]} \
             to answer the question: {self.userQuery} and return 'False' otherwise. After that give a reason for that very briefly.",
-            backstory= f"The path of given data to analyze is in a variable called 'dataPath' \
-            and the event log is in dataformat: {self.fileFormat}. \
-            Your output should be in form: checkedAnswer:True/False , Reason: your reason" ,
+            backstory= f"The path of the data to analyze is in a variable called 'dataPath' \
+            and it is in dataformat: {self.fileFormat}. \
+            Your output should be in form: checkedAnswer:True/False,Reason:your reason" ,
             verbose=True
             )
 
@@ -106,12 +106,13 @@ class pmAnalytics(Flow):
         good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not")
         
         
-        approveValue = ( ( (approve.raw.split(","))[0] ) .split(":") )[1] ##extract the true/false value for the generated code
+        approveValue = ( ( (approve.raw.split(","))[0] ).split(":") )[1] ##extract the true/false value for the generated code
+        
         
         if (approveValue == "True") :
             print("ENTERED THE TRUE CASE")
             return True
-        elif (approveValue == "False") : 
+        else :
             print("ENTERED THE FALSE CASE")
             return False
         
@@ -124,7 +125,9 @@ class pmAnalytics(Flow):
 
         localVariables = {"dataPath" : self.eventLogPath}
         
-        exec(self.state["analyseResult"].raw, globalVariables, localVariables)
+        codeToExecute = self.state["analyseResult"].raw
+
+        exec(codeToExecute, globalVariables, localVariables)
 
         self.state["executorArtifacts"] = localVariables["execResults"] ## needed for report agent
 
