@@ -17,7 +17,7 @@ class pmAnalytics(Flow):
     MAXIMAL_TRY = 2 ## number of maximal try to reproduce the code
 
     userQuery = input("Enter the desired Process Mining query: ")
-
+    
     eventLogPath =  r"ENTER THE DATA FILE NAME"
     
     fileFormat = "" ##it is needed for analytical agent
@@ -112,19 +112,17 @@ class pmAnalytics(Flow):
 
 
         input = f"Return the boolean value true if this code :{code} is good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not"
-
         approve = judge.kickoff(input)
 
+        self.monitor.trace("judge", input, approve.raw , True)
         
         approveValue = ( ( (approve.raw.split(","))[0] ).split(":") )[1] ##extract the true/false value for the generated code
         
         if (approveValue == "True") :
             print("ENTERED THE TRUE CASE")
-            self.monitor.trace("judge", input, approve.raw , True)
             return True
         else :
             print("ENTERED THE FALSE CASE")
-            self.monitor.trace("judge", input, approve.raw , True)
             return False
         
 
