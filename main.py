@@ -3,8 +3,11 @@ from crewai import Agent
 from dotenv import load_dotenv
 from litellm import completion
 
+from TracingSchema import Monitor
+
 import pm4py
 import pandas
+
 
 load_dotenv()
 
@@ -15,10 +18,11 @@ class pmAnalytics(Flow):
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    eventLogPath =  r"ENTER THE PATH OF DATA FILE"
+    eventLogPath =  r"ENTER THE DATA FILE NAME"
     
     fileFormat = "" ##it is needed for analytical agent
 
+    monitor = Monitor (r"ENTER THE JSON FILE NAME")
 
     @start()
     def dataPrep(self): ##no LLM, just deterministic
@@ -38,28 +42,29 @@ class pmAnalytics(Flow):
         
         numberOfRows = len(db) ## number of rows
         namesColumns = list(db.columns)  ## names of columns
-        typesColumns = db.dtypes ## types of columns
+        typesColumns = db.dtypes.astype(str).to_dict() ## types of columns
         numberOfColumns = len(db.columns) ## number of columns
 
         metaDataDict = {"numberRows" : numberOfRows, 
                     "namesColumns" :namesColumns,
-                    "typesColumns" : typesColumns,
+                    "typesColumns" : typesColumns, 
                     "numberColumns" : numberOfColumns
                         }
         
         self.state["metaData"] = metaDataDict ##needed for analytical and judge agent
 
-        print(metaDataDict)
+        self.monitor.trace("dataPrep", self.userQuery, metaDataDict ,False)
+
         return metaDataDict
     
 
    
     @listen(dataPrep)
-    def analyse(self): #Agent with LLM
+    def analyse(self): 
        
         while True:
 
-            analyst = Agent(
+            analyst = Agent( #Agent with LLM
                 role="Analytical Agent",
 
                 goal= f"Return code without introducing it as a variable for the required analyse \
@@ -74,7 +79,8 @@ class pmAnalytics(Flow):
                 verbose=True
                 )
 
-            generatedCode = analyst.kickoff(f"Create a executable code for the {self.userQuery} and {self.state["metaData"]}")
+            input = f"Create a executable code for the {self.userQuery} and {self.state["metaData"]}"
+            generatedCode = analyst.kickoff(input)
 
             self.counterTry+=1
 
@@ -86,13 +92,15 @@ class pmAnalytics(Flow):
 
 
         self.state["analyseResult"] = generatedCode ## needed for judge, executor agent
-        
+
+
+        self.monitor.trace("analyst", input, self.state["analyseResult"].raw , True)
 
 
 
     def check(self, code): ## helper function (judge Agent) for checking the generated code by an LLM
          
-        judge = Agent(
+        judge = Agent( #Agent with LLM
             role="Judge Agent",
             goal= f"Return the value 'True' if you think that generated code {code} is appropriate for the {self.state["metaData"]} \
             to answer the question: {self.userQuery} and return 'False' otherwise. After that give a reason for that very briefly.",
@@ -102,20 +110,22 @@ class pmAnalytics(Flow):
             verbose=True
             )
 
-        approve = judge.kickoff(f"Return the boolean value true if this code :{code} is \
-        good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not")
-        
+
+        input = f"Return the boolean value true if this code :{code} is good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not"
+
+        approve = judge.kickoff(input)
+
         
         approveValue = ( ( (approve.raw.split(","))[0] ).split(":") )[1] ##extract the true/false value for the generated code
         
-        
         if (approveValue == "True") :
             print("ENTERED THE TRUE CASE")
+            self.monitor.trace("judge", input, approve.raw , True)
             return True
         else :
             print("ENTERED THE FALSE CASE")
+            self.monitor.trace("judge", input, approve.raw , True)
             return False
-        
         
 
     @listen(analyse) ## if the code was approved
@@ -131,20 +141,26 @@ class pmAnalytics(Flow):
 
         self.state["executorArtifacts"] = localVariables["execResults"] ## needed for report agent
 
+        self.monitor.trace("executor", codeToExecute, localVariables["execResults"] , False)
+
 
 
     @listen(executor)
-    def report(self): #Agent with LLM
+    def report(self): 
 
-        reporter = Agent(
+        reporter = Agent( #Agent with LLM
             role="Reporter",
             goal= f"Report the results: {self.state["executorArtifacts"]} for the query:{self.userQuery}",
             backstory="You are the reporter that reports the results in a understandable way for the user.",
             verbose=True
             )
 
-        finalReport = reporter.kickoff(f"Give me a report about the results about my query {self.userQuery}")
-    
+        input = f"Give me a report about the results: '{self.state["executorArtifacts"]}' and my query: '{self.userQuery}'"
+
+        finalReport = reporter.kickoff(input)
+
+        self.monitor.trace("reporter", input, finalReport.raw , True)
+
         return finalReport
 
 
