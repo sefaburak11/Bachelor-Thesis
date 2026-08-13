@@ -26,9 +26,13 @@ class pmAnalytics(Flow):
     monitor = Monitor (r"ENTER THE JSON FILE NAME")
 
     NO_TOKEN_USAGE = 0
+    NO_OUTPUT = "NO OUTPUT BECAUSE OF ERROR"
 
     startTime = ""
     endTime = ""
+
+    status = "successful"
+
 
 
     @start()
@@ -47,7 +51,6 @@ class pmAnalytics(Flow):
              db = pm4py.convert_to_dataframe(xesRead)
         else:
             raise SystemExit("The fileformat is not supported!")
-        
 
         numberOfRows = len(db) ## number of rows
         namesColumns = list(db.columns)  ## names of columns
@@ -64,8 +67,8 @@ class pmAnalytics(Flow):
         self.state["metaData"] = metaDataDict ##needed for analytical and judge agent
 
         self.monitor.trace("dataPrep", "Data Profiler Agent" , self.startTime, self.userQuery, 
-                           metaDataDict ,False, self.NO_TOKEN_USAGE, self.endTime)
-
+                           metaDataDict ,False, self.NO_TOKEN_USAGE, self.endTime, self.status)
+        
         return metaDataDict
     
 
@@ -90,19 +93,29 @@ class pmAnalytics(Flow):
             input = f"Create a executable code for the {self.userQuery} and {self.state["metaData"]}"
 
             self.startTime = str(datetime.datetime.now())
-            generatedCode = analyst.kickoff(input)
+            try:
+                generatedCode = analyst.kickoff(input)
+            except Exception as e:
+                self.status = "failed"
+                print(f"The error: '{e}' was occured")
             self.endTime = str(datetime.datetime.now())
 
-            self.monitor.trace("analyst", generatedCode.agent_role, self.startTime, 
-                    input, generatedCode.raw , True, generatedCode.usage_metrics, self.endTime)
-
+            
+            if(self.status == "successful"):
+                self.monitor.trace("analyst", analyst.role, self.startTime, 
+                                    input, generatedCode.raw , True, generatedCode.usage_metrics, self.endTime, self.status)
+            else:
+                self.monitor.trace("analyst", analyst.role, self.startTime, 
+                                    input, self.NO_OUTPUT , True, generatedCode.usage_metrics, self.endTime, self.status)
+                raise SystemExit(f"A problem occurred in {analyst.role}, so the system was terminated.")
+            
 
             self.counterTry+=1
             if (self.check(generatedCode)) : ## if the generated code is approved
                 break
             elif (self.counterTry == self.MAXIMAL_TRY):
                  raise SystemExit("The analyst agent generated incorrect code more than the maximum number of times.")
-
+            
         self.state["analyseResult"] = generatedCode ## needed for judge, executor agent
         
 
@@ -123,15 +136,25 @@ class pmAnalytics(Flow):
         input = f"Return the boolean value true if this code :{code} is good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not"
 
         self.startTime = str(datetime.datetime.now())
-        approve = judge.kickoff(input)
+        try:
+            approve = judge.kickoff(input)
+        except Exception as e:
+            self.status = "failed"
+            print(f"The error: '{e}' was occured")
         self.endTime = str(datetime.datetime.now())
 
 
-        self.monitor.trace("judge", approve.agent_role, self.startTime, 
-                           input, approve.raw , True, approve.usage_metrics, self.endTime)
+        if(self.status == "successful"):
+            self.monitor.trace("judge", judge.role, self.startTime, 
+                            input, approve.raw , True, approve.usage_metrics, self.endTime, self.status)
+        else:
+            self.monitor.trace("judge", judge.role, self.startTime, 
+                            input, self.NO_OUTPUT , True, approve.usage_metrics, self.endTime, self.status)
+            raise SystemExit(f"A problem occurred in {judge.role}, so the system was terminated.")
+        
+
         
         approveValue = ( ( (approve.raw.split(","))[0] ).split(":") )[1] ##extract the true/false value for the generated code
-        
         if (approveValue == "True") :
             print("ENTERED THE TRUE CASE")
             return True
@@ -148,14 +171,22 @@ class pmAnalytics(Flow):
         codeToExecute = self.state["analyseResult"].raw
 
         self.startTime = str(datetime.datetime.now())
-        exec(codeToExecute, globalVariables, localVariables)
+        try:
+            exec(codeToExecute, globalVariables, localVariables)
+        except Exception as e:
+            self.status = "failed"
+            print(f"The error: '{e}' was occured")
         self.endTime = str(datetime.datetime.now())
 
-        self.state["executorArtifacts"] = localVariables["execResults"] ## needed for report agent
 
-        self.monitor.trace("executor", "Executor Agent" , self.startTime, codeToExecute, 
-                    localVariables["execResults"] , False, self.NO_TOKEN_USAGE, self.endTime)
-
+        if(self.status == "successful"):
+             self.monitor.trace("executor", "Executor Agent" , self.startTime, codeToExecute, 
+                localVariables["execResults"] , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
+             self.state["executorArtifacts"] = localVariables["execResults"] ## needed for report agent
+        else:
+            self.monitor.trace("executor", "Executor Agent" , self.startTime, codeToExecute, 
+                self.NO_OUTPUT , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
+            raise SystemExit("A problem occurred in Executor Agent, so the system was terminated.")
 
 
     @listen(executor)
@@ -171,13 +202,25 @@ class pmAnalytics(Flow):
         input = f"Give me a report about the results: '{self.state["executorArtifacts"]}' and my query: '{self.userQuery}'"
 
         self.startTime = str(datetime.datetime.now())
-        finalReport = reporter.kickoff(input)
+        try:
+            finalReport = reporter.kickoff(input)
+        except Exception as e:
+            self.status = "failed"
+            print(f"The error: '{e}' was occured")
         self.endTime = str(datetime.datetime.now())
 
-        self.monitor.trace("reporter", finalReport.agent_role ,self.startTime, 
-                           input, finalReport.raw , True, finalReport.usage_metrics, self.endTime)
+        
+        if(self.status == "successful"):
+            self.monitor.trace("reporter", reporter.role ,self.startTime, 
+                    input, finalReport.raw , True, finalReport.usage_metrics, self.endTime, self.status)
+            return finalReport
+        else:
+            self.monitor.trace("reporter", reporter.role ,self.startTime, 
+                    input, self.NO_OUTPUT , True, finalReport.usage_metrics, self.endTime, self.status)
+            raise SystemExit(f"A problem occurred in {reporter.role} , so the system was terminated.")
 
-        return finalReport
+
+
 
 flow = pmAnalytics()
 flow.plot()

@@ -9,7 +9,7 @@ class Monitor:
             json.dump([],f)
 
 
-    def trace(self, nameOfAgent, role, startTimeStamp, input, output, boolLLM, tokenUsage, endTimeStamp):
+    def trace(self, nameOfAgent, role, startTimeStamp, input, output, boolLLM, tokenUsage, endTimeStamp, status):
 
         newObject = {
             "agentName": nameOfAgent,
@@ -19,7 +19,8 @@ class Monitor:
             "output": output,
             "boolLLM": boolLLM,
             "tokenUsage": tokenUsage,
-            "endTimeStamp": endTimeStamp
+            "endTimeStamp": endTimeStamp,
+            "status": status
             }
 
 
