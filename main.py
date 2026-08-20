@@ -77,8 +77,8 @@ class pmAnalytics(Flow):
                 verbose = True
                 )
 
-            input = f"Create a executable code without introducing it as a variable based on \
-            the user query: {self.userQuery} and profiled dataset: {self.state["metaData"]}. \
+            input = f"Create a executable code without introducing it as a variable to answer \
+            the user query: {self.userQuery} with regard to this data profile: {self.state["metaData"]}. \
             The path of the event log is available in the variable called: 'dataPath' and this event log is in dataformat:'{self.fileFormat}'. \
             If you want to read an event log in XES format, then use as import only 'pm4py' and use \
             the function 'pm4py.read_xes(file_path: str)' which returns <class 'pandas.DataFrame'>. \
