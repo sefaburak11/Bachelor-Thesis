@@ -2,95 +2,88 @@ from crewai.flow.flow import Flow, listen, start
 from crewai import Agent
 from dotenv import load_dotenv
 from litellm import completion
-
 from TracingSchema import Monitor
 
 import pm4py
 import pandas
 import datetime
 
-
 load_dotenv()
 
 class pmAnalytics(Flow):
 
-    counterTry = 0 ## number shows the number of try of analytical agent
-    MAXIMAL_TRY = 2 ## number of maximal try to reproduce the code
+    counterTry = 0 ## The number shows the number of try of the analytical agent.
+    MAXIMAL_TRY = 2 ## The number of maximal try to reproduce the code.
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    eventLogPath =  r"ENTER THE DATA FILE NAME"
-    
-    fileFormat = "" ##it is needed for analytical agent
-
+    eventLogPath =  r"ENTER THE DATA FILE NAME"    
+    fileFormat = "" ## It is needed for the analytical agent.
     monitor = Monitor (r"ENTER THE JSON FILE NAME")
 
     NO_TOKEN_USAGE = 0
-    NO_OUTPUT = "NO OUTPUT BECAUSE OF ERROR"
+    NO_OUTPUT = "NO OUTPUT BECAUSE OF ERROR."
 
     startTime = ""
     endTime = ""
-
     status = "successful"
 
 
-
     @start()
-    def dataPrep(self): ##no LLM, just deterministic
+    def dataPrep(self): ## No LLM usage, this is a deterministic agent.  
 
         self.startTime = str(datetime.datetime.now())
 
-        if(self.eventLogPath.endswith (".csv")) : ## if data in csv format
+        if(self.eventLogPath.endswith (".csv")) : ## If the event log is in CSV format.
              self.fileFormat = "CSV"
-             print("CSV ENTERED!")
              db = pandas.read_csv(self.eventLogPath)
 
-        elif(self.eventLogPath.endswith (".xes")) : ## if data in xes format
+        elif(self.eventLogPath.endswith (".xes")) : ## If the event log is in XES format.
              self.fileFormat = "XES"
              xesRead = pm4py.read_xes(self.eventLogPath)
              db = pm4py.convert_to_dataframe(xesRead)
         else:
-            raise SystemExit("The fileformat is not supported!")
+            raise SystemExit("The file format is not supported!")
 
-        numberOfRows = len(db) ## number of rows
-        namesColumns = list(db.columns)  ## names of columns
-        typesColumns = db.dtypes.astype(str).to_dict() ## types of columns
-        numberOfColumns = len(db.columns) ## number of columns
+        numberOfRows = len(db) ## The number of rows.
+        namesColumns = list(db.columns)  ## The names of columns.
+        typesColumns = db.dtypes.astype(str).to_dict() ## The data types of columns.
+        numberOfColumns = len(db.columns) ## The number of columns.
 
-        metaDataDict = {"numberRows" : numberOfRows, 
-                    "namesColumns" :namesColumns,
-                    "typesColumns" : typesColumns, 
-                    "numberColumns" : numberOfColumns
-                        }
+        metaDataDict = {"numberRows" : numberOfRows, "namesColumns" :namesColumns, 
+                        "dataTypesColumns" : typesColumns, "numberColumns" : numberOfColumns}
+        
         self.endTime = str(datetime.datetime.now())
 
-        self.state["metaData"] = metaDataDict ##needed for analytical and judge agent
+        self.state["metaData"] = metaDataDict ## The profile of event log is needed for the analytical and judge agent.
 
-        self.monitor.trace("dataPrep", "Data Profiler Agent" , self.startTime, self.userQuery, 
-                           metaDataDict ,False, self.NO_TOKEN_USAGE, self.endTime, self.status)
-        
+        self.monitor.trace("dataPrep", "Data Profiler Agent", self.startTime, self.userQuery, 
+                           metaDataDict , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
         return metaDataDict
     
 
-   
+
+
+
     @listen(dataPrep)
     def analyse(self): 
        
         while True:
 
-            analyst = Agent( #Agent with LLM
-                role="Analytical Agent",
-                goal= f"Return code without introducing it as a variable for the required analyse \
-                based on the user query: {self.userQuery} and profiled dataset: {self.state["metaData"]}",
-                backstory="You are the analystics that creates the code for the required analyse." \
-                f"The path of given event log is available in a variable called 'dataPath' and the event log is in dataformat: '{self.fileFormat}'." \
-                "If you want to read an event log in XES format, then use as import just 'pm4py' and the function 'pm4py.read_xes(file_path: str)' and " \
-                "the function 'pm4py.read_xes(file_path: str) returns <class 'pandas.DataFrame'>. " \
-                "Moreover, save the final part in 'execResults' variable which is needed for the answering query.",
-                verbose=True
+            analyst = Agent( ## This is an LLM-based agent.
+                role = "Analytical Agent",
+                goal = "Create code for the required analyse." ,
+                backstory = "You are the analyst who creates the code for the required analyse.", 
+                verbose = True
                 )
 
-            input = f"Create a executable code for the {self.userQuery} and {self.state["metaData"]}"
+            input = f"Create a executable code without introducing it as a variable based on \
+            the user query: {self.userQuery} and profiled dataset: {self.state["metaData"]}. \
+            The path of the event log is available in the variable called: 'dataPath' and this event log is in dataformat:'{self.fileFormat}'. \
+            If you want to read an event log in XES format, then use as import only 'pm4py' and use \
+            the function 'pm4py.read_xes(file_path: str)' which returns <class 'pandas.DataFrame'>. \
+            Finally, save the final part in the variable called: 'execResults' which is needed for the answering user query."
+
 
             self.startTime = str(datetime.datetime.now())
             try:
@@ -100,44 +93,46 @@ class pmAnalytics(Flow):
                 print(f"The error: '{e}' was occured")
             self.endTime = str(datetime.datetime.now())
 
-            
             if(self.status == "successful"):
-                self.monitor.trace("analyst", analyst.role, self.startTime, 
-                                    input, generatedCode.raw , True, generatedCode.usage_metrics, self.endTime, self.status)
+                self.monitor.trace("analyst", analyst.role, self.startTime, input, 
+                                   generatedCode.raw, True, generatedCode.usage_metrics, self.endTime, self.status)
             else:
-                self.monitor.trace("analyst", analyst.role, self.startTime, 
-                                    input, self.NO_OUTPUT , True, generatedCode.usage_metrics, self.endTime, self.status)
+                self.monitor.trace("analyst", analyst.role, self.startTime, input, 
+                                   self.NO_OUTPUT, True, generatedCode.usage_metrics, self.endTime, self.status)
                 raise SystemExit(f"A problem occurred in {analyst.role}, so the system was terminated.")
-            
 
+            
             self.counterTry+=1
-            if (self.check(generatedCode)) : ## if the generated code is approved
+            if (self.check(generatedCode)) : ## If the generated code is approved by the judge agent.
                 break
             elif (self.counterTry == self.MAXIMAL_TRY):
-                 raise SystemExit("The analyst agent generated incorrect code more than the maximum number of times.")
+                raise SystemExit("The analytical agent generated incorrect code more than the maximum allowed number.")
+
             
-        self.state["analyseResult"] = generatedCode ## needed for judge, executor agent
+        self.state["analyseResult"] = generatedCode ## It is needed for judge and executor agent.
         
 
 
-    def check(self, code): ## helper function (judge Agent) for checking the generated code by an LLM
+
+    def check(self, code): ## The helper function for the judge agent to check the generated code.
          
-        judge = Agent( #Agent with LLM
-            role="Judge Agent",
-            goal= f"Return the value 'True' if you think that generated code {code} is appropriate for the {self.state["metaData"]} \
-            to answer the question: {self.userQuery} and return 'False' otherwise. After that give a reason for that very briefly.",
-            backstory= f"The path of the data to analyze is in a variable called 'dataPath' \
-            and it is in dataformat: {self.fileFormat}. \
-            Your output should be in form: checkedAnswer:True/False,Reason:your reason" ,
-            verbose=True
+        judge = Agent( ## This is an LLM-based agent.
+            role = "Judge Agent",
+            goal = "Evaluate the generated code.",
+            backstory = "You are the judge who checks the code.",
+            verbose = True
             )
 
 
-        input = f"Return the boolean value true if this code :{code} is good for answering this query :{self.userQuery} specifically for this {self.state["metaData"]} and return false if not"
+        input = f"Return the boolean value 'True' if the code: {code} is appropriate for answering the user query:\
+        {self.userQuery} with regard to this data profile: {self.state["metaData"]} and return 'False' if it is not.\
+        Finally, state briefly the reason for the evaluation. The output should be in that form:\
+        checkedAnswer:True/False, Reason:the reason for the evaluation."
+
 
         self.startTime = str(datetime.datetime.now())
         try:
-            approve = judge.kickoff(input)
+            judgeResult = judge.kickoff(input)
         except Exception as e:
             self.status = "failed"
             print(f"The error: '{e}' was occured")
@@ -145,29 +140,30 @@ class pmAnalytics(Flow):
 
 
         if(self.status == "successful"):
-            self.monitor.trace("judge", judge.role, self.startTime, 
-                            input, approve.raw , True, approve.usage_metrics, self.endTime, self.status)
+            self.monitor.trace("judge", judge.role, self.startTime, input, 
+                    judgeResult.raw, True, judgeResult.usage_metrics, self.endTime, self.status)
         else:
-            self.monitor.trace("judge", judge.role, self.startTime, 
-                            input, self.NO_OUTPUT , True, approve.usage_metrics, self.endTime, self.status)
+            self.monitor.trace("judge", judge.role, self.startTime, input, 
+                    self.NO_OUTPUT, True, judgeResult.usage_metrics, self.endTime, self.status)
             raise SystemExit(f"A problem occurred in {judge.role}, so the system was terminated.")
         
 
         
-        approveValue = ( ( (approve.raw.split(","))[0] ).split(":") )[1] ##extract the true/false value for the generated code
-        if (approveValue == "True") :
-            print("ENTERED THE TRUE CASE")
+        approvalOfCode = ( ( (judgeResult.raw.split(","))[0] ).split(":") )[1] 
+        ## Extract the True/False value after the execution of the judge agent.
+
+        if(approvalOfCode == "True"):
             return True
-        else :
-            print("ENTERED THE FALSE CASE")
+        else:
             return False
         
 
-    @listen(analyse) ## if the code was approved
-    def executor(self): #no LLM, just deterministic
+
+    @listen(analyse) ## If the check of generated code is successful, this agent will be executed.
+    def executor(self): ## No LLM usage, this is a deterministic agent.
 
         globalVariables = {}
-        localVariables = {"dataPath" : self.eventLogPath}
+        localVariables = {"dataPath": self.eventLogPath}
         codeToExecute = self.state["analyseResult"].raw
 
         self.startTime = str(datetime.datetime.now())
@@ -180,26 +176,27 @@ class pmAnalytics(Flow):
 
 
         if(self.status == "successful"):
-             self.monitor.trace("executor", "Executor Agent" , self.startTime, codeToExecute, 
-                localVariables["execResults"] , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
-             self.state["executorArtifacts"] = localVariables["execResults"] ## needed for report agent
-        else:
+            self.state["executorOutcomes"] = localVariables["execResults"] ## It is needed for the reporter agent.
             self.monitor.trace("executor", "Executor Agent" , self.startTime, codeToExecute, 
-                self.NO_OUTPUT , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
+                self.state["executorOutcomes"], False, self.NO_TOKEN_USAGE, self.endTime, self.status)
+        else:
+            self.monitor.trace("executor", "Executor Agent" ,self.startTime, codeToExecute, 
+                self.NO_OUTPUT, False, self.NO_TOKEN_USAGE, self.endTime, self.status)
             raise SystemExit("A problem occurred in Executor Agent, so the system was terminated.")
+
 
 
     @listen(executor)
     def report(self): 
 
-        reporter = Agent( #Agent with LLM
-            role="Reporter Agent",
-            goal= f"Report the results: {self.state["executorArtifacts"]} for the query:{self.userQuery}",
-            backstory="You are the reporter that reports the results in a understandable way for the user.",
-            verbose=True
+        reporter = Agent( ## This is an LLM-based agent. 
+            role = "Reporter Agent",
+            goal = "Create a report.",
+            backstory = "You are a report writer that writes an understandable report for the user.",
+            verbose = True
             )
 
-        input = f"Give me a report about the results: '{self.state["executorArtifacts"]}' and my query: '{self.userQuery}'"
+        input = f"Create a report about the findings:'{self.state["executorOutcomes"]}' and the user query:'{self.userQuery}'."
 
         self.startTime = str(datetime.datetime.now())
         try:
@@ -208,18 +205,15 @@ class pmAnalytics(Flow):
             self.status = "failed"
             print(f"The error: '{e}' was occured")
         self.endTime = str(datetime.datetime.now())
-
         
         if(self.status == "successful"):
-            self.monitor.trace("reporter", reporter.role ,self.startTime, 
-                    input, finalReport.raw , True, finalReport.usage_metrics, self.endTime, self.status)
+            self.monitor.trace("reporter", reporter.role, self.startTime, 
+                    input, finalReport.raw, True, finalReport.usage_metrics, self.endTime, self.status)
             return finalReport
         else:
-            self.monitor.trace("reporter", reporter.role ,self.startTime, 
-                    input, self.NO_OUTPUT , True, finalReport.usage_metrics, self.endTime, self.status)
-            raise SystemExit(f"A problem occurred in {reporter.role} , so the system was terminated.")
-
-
+            self.monitor.trace("reporter", reporter.role, self.startTime, 
+                    input, self.NO_OUTPUT, True, finalReport.usage_metrics, self.endTime, self.status)
+            raise SystemExit(f"A problem occurred in {reporter.role}, so the system was terminated.")
 
 
 flow = pmAnalytics()
