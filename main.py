@@ -10,7 +10,7 @@ import datetime
 
 load_dotenv()
 
-class pmAnalytics(Flow):
+class multiAgentPmAnalyst(Flow):
 
     counterTry = 0 ## The number shows the number of try of the analytical agent.
     MAXIMAL_TRY = 2 ## The number of maximal try to reproduce the code.
@@ -90,7 +90,7 @@ class pmAnalytics(Flow):
                 generatedCode = analyst.kickoff(input)
             except Exception as e:
                 self.status = "failed"
-                print(f"The error: '{e}' was occured")
+                print(f"The error: '{e}' was occured!")
             self.endTime = str(datetime.datetime.now())
 
             if(self.status == "successful"):
@@ -135,7 +135,7 @@ class pmAnalytics(Flow):
             judgeResult = judge.kickoff(input)
         except Exception as e:
             self.status = "failed"
-            print(f"The error: '{e}' was occured")
+            print(f"The error: '{e}' was occured!")
         self.endTime = str(datetime.datetime.now())
 
 
@@ -171,7 +171,7 @@ class pmAnalytics(Flow):
             exec(codeToExecute, globalVariables, localVariables)
         except Exception as e:
             self.status = "failed"
-            print(f"The error: '{e}' was occured")
+            print(f"The error: '{e}' was occured!")
         self.endTime = str(datetime.datetime.now())
 
 
@@ -203,7 +203,7 @@ class pmAnalytics(Flow):
             finalReport = reporter.kickoff(input)
         except Exception as e:
             self.status = "failed"
-            print(f"The error: '{e}' was occured")
+            print(f"The error: '{e}' was occured!")
         self.endTime = str(datetime.datetime.now())
         
         if(self.status == "successful"):
@@ -216,7 +216,7 @@ class pmAnalytics(Flow):
             raise SystemExit(f"A problem occurred in {reporter.role}, so the system was terminated.")
 
 
-flow = pmAnalytics()
+flow = multiAgentPmAnalyst()
 flow.plot()
 result = flow.kickoff()
 
