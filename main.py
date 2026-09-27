@@ -11,15 +11,16 @@ import datetime
 load_dotenv()
 
 class multiAgentPmAnalyst(Flow):
+    """This class implements the logic of the multi agent system for process mining."""
 
     counterTry = 0 ## The number shows the number of try of the analytical agent.
-    MAXIMAL_TRY = 2 ## The number of maximal try to reproduce the code.
+    MAXIMAL_TRY = 2 ## The number of maximal tries to reproduce the code.
 
     userQuery = input("Enter the desired Process Mining query: ")
 
-    eventLogPath =  r"ENTER THE DATA FILE NAME"    
+    eventLogPath =  "Please provide the path of the event log."    
     fileFormat = "" ## It is needed for the analytical agent.
-    monitor = Monitor (r"ENTER THE JSON FILE NAME")
+    monitor = Monitor("Please enter the path of JSON file which is used for the tracing schema.")
 
     NO_TOKEN_USAGE = 0
     NO_OUTPUT = "NO OUTPUT BECAUSE OF ERROR."
@@ -57,7 +58,7 @@ class multiAgentPmAnalyst(Flow):
 
         self.state["metaData"] = metaDataDict ## The profile of event log is needed for the analytical and judge agent.
 
-        self.monitor.trace("dataPrep", "Data Profiler Agent", self.startTime, self.userQuery, 
+        self.monitor.trace("Data Profiler Agent", "Data Profiler Agent", self.startTime, self.userQuery, 
                            metaDataDict , False, self.NO_TOKEN_USAGE, self.endTime, self.status)
         return metaDataDict
     
@@ -79,7 +80,7 @@ class multiAgentPmAnalyst(Flow):
 
             input = f"Create a executable code without introducing it as a variable to answer \
             the user query: {self.userQuery} with regard to this data profile: {self.state["metaData"]}. \
-            The path of the event log is available in the variable called: 'dataPath' and this event log is in dataformat:'{self.fileFormat}'. \
+            The path of the event log is available in the variable called: 'dataPath' and this event log is in data format:'{self.fileFormat}'. \
             If you want to read an event log in XES format, then use as import only 'pm4py' and use \
             the function 'pm4py.read_xes(file_path: str)' which returns <class 'pandas.DataFrame'>. \
             Finally, save the final part in the variable called: 'execResults' which is needed for the answering user query."

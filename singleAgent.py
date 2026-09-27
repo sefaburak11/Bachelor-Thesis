@@ -12,14 +12,15 @@ import datetime
 
 load_dotenv()
 
-eventLogPath =  r"ENTER THE DATA FILE NAME"  
+eventLogPath = "Please provide the path of the event log."  
 
 class singleAgentPmAnalyst(Flow):
+    """This class implements the logic of the single agent system for process mining."""
 
-    
     userQuery = input("Enter the desired Process Mining query: ")
+    
     fileFormat = "" ## It is needed for the process analyst agent.
-    monitor = Monitor (r"ENTER THE JSON FILE NAME")
+    monitor = Monitor("Please provide the path of JSON file which is used for the tracing schema.")
 
     NO_TOKEN_USAGE = 0
     NO_OUTPUT = "NO OUTPUT BECAUSE OF ERROR."
