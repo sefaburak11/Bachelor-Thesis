@@ -1,12 +1,7 @@
 # Bachelor-Thesis
 
-Thesis Title: Multi-Agent Data Analytics for Process Mining: Design, Monitoring, and Benchmarking of an LLM-Driven System
+Thesis Title: Multi-Agent Data Analytics: Design, Monitoring, and Benchmarking of an LLM-Driven Analytics Assistant
 
-The first goal of this proposed research is to create a prototype multi-agent analytics assistant as a proof-of-concept (PoC) that has the following capabilities:
-- Receive a query from the user and analyze it correctly.
-- Perform the necessary data processing steps.
-- Propose the required techniques and generate the corresponding code for the analysis.
-- Execute the suggested techniques on the event logs.
-- Provide the user with an understandable report at the end.
-  
-The second goal of this proposed research is to provide users with a suitable monitoring schema and a benchmark.
+Process Mining (PM) is a discipline that helps organizations analyze and improve their processes. Artificial Intelligence (AI), particularly the technology of Large Language Model (LLM)-based Multi Agent System (MAS), is rapidly developing, and its application in PM can offer several advantages, such as assigning PM steps to specific agents for more effective and cooperative solutions and requiring less technical knowledge to leverage PM techniques. However, due to the autonomous and non-deterministic nature of LLM-based agents, it is crucial to ensure observability of agents and maintain the accuracy of the system. For this purpose, an LLM-based multi-agent analytics system with an observability schema and a benchmark is developed in this study. The proposed system consists of five specialized agents working in coordination. After receiving a PM task from the user, the system operates on the provided dataset and generates a report to the user. Furthermore, the behavior of each agent can be monitored by using the designed tracing schema.
+
+The logic of the multi agent system is implemented in the class "main.py". Furthermore, the logic of the single agent system is implemented in the class "singleAgent.py". Another class "TracingSchema.py" includes the tracing schema, which is used for the monitoring of agents. The multi agent system and single agent system has been developed using the framework "CrewAI". The user has to provide the path of the event log and the path of the JSON file for the tracing schema. The variable for the path of the event log is called "eventLogPath". The variable for the JSON file for the tracing schema is called "monitor". Both variables can be found in the classes "main.py" and "singleAgent.py". Moreover, the user has to provide an API key for the LLM.
